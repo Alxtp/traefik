@@ -1,0 +1,49 @@
+services:
+  traefik:
+    image: traefik:3.4
+    container_name: traefik
+    restart: unless-stopped
+    ports:
+      - 443:443
+    command:
+      - --api=true
+      - --log.level=INFO
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entryPoints.https.address=:443
+      - --certificatesresolvers.cloudflare.acme.dnschallenge=true
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.cloudflare.acme.email=alexander@wenger.dev
+      - --certificatesresolvers.cloudflare.acme.storage=/certificates/acme.json
+      - --certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+    secrets:
+      - cloudflare_token
+    environment:
+      - CF_DNS_API_TOKEN_FILE=/run/secrets/cloudflare_token
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - certificates:/certificates
+    networks:
+      - private
+      - edge
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard.rule=Host(`traefik.home.wenger.dev`)
+      - traefik.http.routers.dashboard.entryPoints=https
+      - traefik.http.routers.dashboard.service=api@internal
+      - traefik.http.routers.dashboard.tls=true
+      - traefik.http.routers.dashboard.tls.certresolver=cloudflare
+      - traefik.http.routers.dashboard.middlewares=authelia@docker
+
+secrets:
+  cloudflare_token:
+    environment: CLOUDFLARE_TOKEN
+
+volumes:
+  certificates:
+
+networks:
+  private:
+    external: true
+  edge:
+    external: true
